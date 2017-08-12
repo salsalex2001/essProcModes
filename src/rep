@@ -1,0 +1,78 @@
+Hello, thanks again for your reply :)
+
+Not sure how to share my code, it's pretty messy and contains several files. Not yet usd to githug...
+
+1/ where I set the HYP stack is just after I set the SVC one
+
+    ;@ 2/ Initialize the stacks of the modes we will be using
+    ;@ 2.1/ We're going to use INTERRUPT mode, so setup the INTERRUPT mode
+    ;@ stack pointer which differs to the application stack pointer:
+    mov r0, #(CPSR_MODE_IRQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
+    msr cpsr_c, r0
+    mov sp, #(63 * 1024 * 1024)
+  
+    ;@ 2.2/ We're going to use SUPERVISOR mode, so setup the SVC mode stack pointer
+    # Switch back to SUPERVISOR mode (our application mode) and
+    # set the stack pointer towards the end of RAM. Remember that the
+    # stack works its way down memory, our heap will work it's way
+    # up memory toward the application stack.
+    ;@ mov r0, #(CPSR_MODE_SVR | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT ) 
+    mov r0, #(CPSR_MODE_SVR)
+    msr cpsr_c, r0
+    ; mov sp, #(61 * 1024 * 1024) 
+    ldr sp, =__SVC_stack_core0
+ 
+    ;@ 2.3/ We're going to use HYPERVISOR mode, so setup the HYP mode stack pointer
+    # AB: added this to check whether HYP mode stack setup helps...
+    mov r0, #(CPSR_MODE_HYPERVISOR | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
+    msr cpsr_c, r0
+    mov sp, #(62 * 1024 * 1024)
+
+    ;@ 2.4 This should not be necessary since above block already sets the SP. Overwritten...
+    # Set the stack pointer at some point in RAM that won't harm us
+    # It's different from the IRQ stack pointer above and no matter
+    # what the GPU/CPU memory split, 64MB is available to the CPU
+    # Keep it within the limits and also keep it aligned to a 32-bit
+    # boundary!
+    mov     sp, #(64 * 1024 * 1024)
+
+This runs at my PI start-up, in Hypervisor mode.
+
+2/ What I call "mini-shell" is a small command interpreter I build to control my PI through a serial terminal.... Pretty basic but useful...
+
+3/ That "shell" runs in hyp mode at startup, as well the PI from boot-up in my program.
+ For this reason I wonder whether this could not explain that code in 1 above does not work !
+ The shell is started after stacks are initialized, thus I expect the stack to follow the mode. But no, the sVC stack remains unset as long as the processor is in hyp mode. Or it appears so...
+
+>> int off * stops peripheral interrupts
+Command INT
+INT OFF: Interrupts disabled
+>> mode * show current mode
+Command MODE
+Current mode is 0x1A (0b11010)
+Current mode is HYPERVISOR (0x1A)
+>> rd sp * read sp
+Command RD
+SP = 0x03FFFF48
+>> rd sp s * read sp_svc
+Command RD
+SP SVR = 0x00000000
+>> rd sp h * read sp_hyp
+Command RD
+SP HYP = 0x03FFFF48
+>> mode svc * change mode to svc
+Command MODE
+Switch to SVC mode...
+Mode changed 1234 5678 9ABC
+6000 0153 
+CPSR (back in main loop) = 60000153
+Leaving HYP to SVC
+>> rd sp * read sp
+Command RD
+SP = 0x03FFFF48
+>> rd sp s * read sp_svc
+Command RD
+SP SVR = 0x03FFFF48
+>> rd sp h * read sp_hyp
+Command RD
+ *** here tue program crashes, interrupts stops and the shell serial interface does not reply either. I guess an Undef has been triggered but cannot confirm this yet...
