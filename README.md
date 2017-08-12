@@ -1,2 +1,5 @@
 # essProcModes
-Basic experiences in RPI2 mode switching
+Basic experiences in RPI2 mode switching in a baremetal environment.
+
+This is a patchwork of code snipet borrowed from Raspberry PI baremetals contributors and some of my own code to agregate it all for my purpose...
+This projec's target is to experience mode switches on Raspberry PI2 board.
